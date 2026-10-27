@@ -29,7 +29,11 @@ import pe.upeu.agrosierra.presentation.AgroUiState
             Text("Inicia sesión para consultar tus lotes y registrar el trabajo de campo.",color=MaterialTheme.colorScheme.onSurfaceVariant)
             OutlinedTextField(usuario,{usuario=it},Modifier.fillMaxWidth(),label={Text("Usuario")},singleLine=true,enabled=!st.cargando,leadingIcon={Icon(Icons.Default.Person,null)})
             OutlinedTextField(clave,{clave=it},Modifier.fillMaxWidth(),label={Text("Contraseña")},singleLine=true,enabled=!st.cargando,visualTransformation=if(visible) VisualTransformation.None else PasswordVisualTransformation(),leadingIcon={Icon(Icons.Default.Lock,null)},trailingIcon={IconButton({visible=!visible}) {Icon(if(visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,"Mostrar contraseña")}})
-            (st.campos["login"] ?: st.error?.let { if(it is pe.upeu.agrosierra.domain.model.ErrorApi.NoAutorizado) "Usuario o contraseña incorrectos" else it.message })?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+            (st.campos["login"] ?: st.error?.let { when(it) {
+                is pe.upeu.agrosierra.domain.model.ErrorApi.NoAutorizado -> "Usuario o contraseña incorrectos"
+                is pe.upeu.agrosierra.domain.model.ErrorApi.SinConexion -> "No se pudo conectar. Revisa tu conexión e intenta nuevamente"
+                else -> it.message
+            } })?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             Button({ingresar(usuario,clave)},Modifier.fillMaxWidth(),enabled=!st.cargando) { if(st.cargando) {CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp);Spacer(Modifier.width(12.dp))};Text(if(st.cargando) "Ingresando…" else "Ingresar") }
             Text("Necesitas conexión para iniciar sesión. Después podrás consultar y registrar labores sin cobertura.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
