@@ -3,6 +3,6 @@
 .idea/
 **/build/
 local.properties
-data/
+/data/
 *.log
 .env
