@@ -14,6 +14,8 @@ import pe.upeu.agrosierra.data.remote.*
 import pe.upeu.agrosierra.data.remote.dto.*
 import pe.upeu.agrosierra.data.repository.*
 import pe.upeu.agrosierra.domain.model.*
+import pe.upeu.agrosierra.domain.model.Lote
+import pe.upeu.agrosierra.domain.model.Labor
 import pe.upeu.agrosierra.domain.usecase.*
 
 expect fun driverEnMemoria(): SqlDriver
@@ -69,7 +71,7 @@ class AgroRepositoryTest {
             val resumen=repo.sincronizar()
             assertEquals("POST /api/v1/labores",orden.first());assertEquals(1,resumen.enviados)
             assertNull(local.q.obtenerLabor(provisional.id).executeAsOneOrNull())
-            val fila=repo.observarLabores(1).first().single();assertEquals(10,fila.id);assertFalse(fila.pendiente)
+            val fila=repo.observarLabores(1).first().single();assertEquals(10L,fila.id);assertFalse(fila.pendiente)
             repo.sincronizar();assertEquals(1,orden.count {it.startsWith("POST")})
         } finally {cliente.close();driver.close()}
     }

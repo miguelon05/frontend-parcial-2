@@ -41,6 +41,7 @@ class AgroRepositoryOffline(private val local: BaseLocal,private val http: HttpC
         val anterior=local.q.obtenerLabor(labor.id).executeAsOneOrNull()
         if(anterior?.pendiente==1L && anterior.propietario!=s.usuario) throw ErrorApi.SinPrivilegio()
         if(labor.id<0) local.q.borrarLabor(labor.id) else local.guardar(labor.copy(pendiente=true),"DELETE",s.usuario)
+        Unit
     } }
     override suspend fun cerrarCampania(id: Long) {
         mutex.withLock {

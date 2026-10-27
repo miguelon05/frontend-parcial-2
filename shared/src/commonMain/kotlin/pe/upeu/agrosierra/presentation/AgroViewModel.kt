@@ -62,7 +62,11 @@ class AgroViewModel(private val sesiones: SesionRepository,private val repo: Agr
         if(estado.value.sincronizando || estado.value.sesion==null) return
         mutable.update { it.copy(sincronizando=true,error=null,mensaje=null) }
         viewModelScope.launch {
-            try { val r=sincronizar();mutable.update { it.copy(mensaje="Sincronización: ${r.enviados} enviados, ${r.recibidos} recibidos"+(if(r.rechazados>0) ". ${r.rechazados} requieren corrección" else "")) } }
+            try {
+                val perfil=sesiones.perfil()
+                mutable.update { st -> st.copy(sesion=st.sesion?.copy(usuario=perfil.usuario,nombre=perfil.nombre,rol=perfil.rol,privilegios=perfil.privilegios,editaTodas=perfil.editaTodas || "LABOR_ELIMINAR" in perfil.privilegios)) }
+                val r=sincronizar();mutable.update { it.copy(mensaje="Sincronización: ${r.enviados} enviados, ${r.recibidos} recibidos"+(if(r.rechazados>0) ". ${r.rechazados} requieren corrección" else "")) }
+            }
             catch(e: Exception) { error(e) }
             finally { mutable.update { it.copy(sincronizando=false) } }
         }
