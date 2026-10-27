@@ -10,5 +10,5 @@ interface AgroRepository {
     suspend fun eliminar(labor: Labor)
     suspend fun cerrarCampania(id: Long)
     suspend fun sincronizar(): ResumenSync
-    fun errorPendiente(id: Long): String
+    fun errorPendiente(id: Long): ErrorApi?
 }

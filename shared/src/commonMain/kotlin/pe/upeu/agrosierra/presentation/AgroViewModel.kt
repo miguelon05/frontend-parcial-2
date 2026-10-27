@@ -15,13 +15,14 @@ class AgroViewModel(private val sesiones: SesionRepository,private val repo: Agr
     private var listado: Job?=null
     private var detalle: Job?=null
     private var expiracion: Job?=null
+    private var valles: Job?=null
     init {
         viewModelScope.launch {
             sesiones.sesion.collect { s ->
-                listado?.cancel();detalle?.cancel();expiracion?.cancel()
+                listado?.cancel();detalle?.cancel();expiracion?.cancel();valles?.cancel()
                 mutable.value=AgroUiState(sesion=s,iniciando=false,conectado=red.conectado.value)
                 if(s!=null) {
-                    observar();viewModelScope.launch { repo.observarLotes().collect { rows -> mutable.update { it.copy(valles=rows.map { l -> l.valle }.distinct().sorted()) } } }
+                    observar();valles=viewModelScope.launch { repo.observarLotes().collect { rows -> mutable.update { it.copy(valles=rows.map { l -> l.valle }.distinct().sorted()) } } }
                     expiracion=viewModelScope.launch { delay(((s.expiraEn-Clock.System.now().epochSeconds)*1000).coerceAtLeast(1));sesiones.salir() }
                     sync()
                 }
@@ -43,7 +44,7 @@ class AgroViewModel(private val sesiones: SesionRepository,private val repo: Agr
         trabajo { sesiones.ingresar(usuario.trim(),contrasena) }
     }
     fun salir() { sesiones.salir() }
-    fun limpiar() { mutable.update { it.copy(mensaje=null,error=null,campos=emptyMap(),guardado=false) } }
+    fun limpiar() { mutable.update { it.copy(mensaje=null,error=null,campos=emptyMap(),guardado=false,laborGuardada=null) } }
     private fun error(e: Throwable) {
         if(e is CancellationException) throw e
         val api=e as? ErrorApi ?: ErrorApi.Servidor()
@@ -68,10 +69,12 @@ class AgroViewModel(private val sesiones: SesionRepository,private val repo: Agr
     }
     fun guardar(l: Labor) = trabajo {
         val guardada=registrar(l)
+        mutable.update { it.copy(laborGuardada=guardada) }
+        if(!red.conectado.value) { mutable.update { it.copy(guardado=true,mensaje="Labor guardada en el dispositivo · Pendiente de sincronizar") };return@trabajo }
         try {
             val r=sincronizar()
             val motivo=repo.errorPendiente(guardada.id)
-            if(motivo.isNotBlank()) { mutable.update { it.copy(error=ErrorApi.Conflicto(motivo),guardado=true) } }
+            if(motivo!=null) { mutable.update { it.copy(error=motivo,campos=(motivo as? ErrorApi.Validacion)?.campos ?: emptyMap(),guardado=false) } }
             else mutable.update { it.copy(guardado=true,mensaje="Labor guardada y sincronizada. ${r.enviados} enviados") }
         } catch(e: ErrorApi.SinConexion) { mutable.update { it.copy(guardado=true,mensaje="Labor guardada en el dispositivo · Pendiente de sincronizar") } }
           catch(e: ErrorApi.TiempoAgotado) { mutable.update { it.copy(guardado=true,mensaje="Labor guardada · Se enviará al recuperar la conexión") } }

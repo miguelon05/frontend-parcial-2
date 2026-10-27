@@ -20,6 +20,8 @@ import kotlinx.datetime.toLocalDateTime
     var fecha by rememberSaveable(edicion?.id) {mutableStateOf(edicion?.fecha ?: Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toString())}
     var cantidad by rememberSaveable(edicion?.id) {mutableStateOf(edicion?.cantidad?.toString() ?: "")}
     var observacion by rememberSaveable(edicion?.id) {mutableStateOf(edicion?.observacion ?: "")}
+    var idLocal by rememberSaveable(edicion?.id) {mutableStateOf(edicion?.id ?: 0L)}
+    LaunchedEffect(st.laborGuardada?.id) { st.laborGuardada?.let { idLocal=it.id } }
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         Text(lote.nombre,style=MaterialTheme.typography.titleLarge)
         Text("Tipo de labor",style=MaterialTheme.typography.labelLarge)
@@ -31,7 +33,7 @@ import kotlinx.datetime.toLocalDateTime
         OutlinedTextField(observacion,{observacion=it},Modifier.fillMaxWidth(),label={Text("Observación")},minLines=3,enabled=!st.cargando,isError=st.campos.containsKey("observacion"),supportingText={Text(st.campos["observacion"] ?: "${observacion.length}/500 caracteres")})
         Text("Responsable: ${edicion?.responsable ?: st.sesion?.usuario}",style=MaterialTheme.typography.bodyMedium)
         if(!st.conectado) Text("Puedes guardar sin cobertura. La labor quedará pendiente de envío.",style=MaterialTheme.typography.bodySmall)
-        Button(onClick={guardar(Labor(edicion?.id ?: 0,lote.id,TipoLabor.valueOf(tipo),fecha,edicion?.responsable ?: st.sesion!!.usuario,cantidad.replace(',','.').toDoubleOrNull() ?: 0.0,observacion,true,edicion?.creadoEn ?: ""))},modifier=Modifier.fillMaxWidth(),enabled=!st.cargando && !st.sincronizando) {Text(if(st.cargando) "Guardando…" else "Guardar labor")}
+        Button(onClick={guardar(Labor(idLocal,lote.id,TipoLabor.valueOf(tipo),fecha,edicion?.responsable ?: st.sesion!!.usuario,cantidad.replace(',','.').toDoubleOrNull() ?: 0.0,observacion,true,edicion?.creadoEn ?: ""))},modifier=Modifier.fillMaxWidth(),enabled=!st.cargando && !st.sincronizando) {Text(if(st.cargando) "Guardando…" else "Guardar labor")}
     }
 }
 @Composable private fun Campo(label: String,valor: String,cambiar: (String) -> Unit,error: String?,cargando: Boolean,numerico: Boolean=false) {

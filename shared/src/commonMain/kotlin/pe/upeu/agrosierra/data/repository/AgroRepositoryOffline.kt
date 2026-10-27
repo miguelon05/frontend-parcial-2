@@ -12,15 +12,22 @@ import pe.upeu.agrosierra.domain.model.*
 import pe.upeu.agrosierra.domain.repository.*
 import kotlin.time.Clock
 import kotlin.random.Random
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 class AgroRepositoryOffline(private val local: BaseLocal,private val http: HttpClient,private val seguro: AlmacenSeguro): AgroRepository {
     private val mutex=Mutex()
     private fun sesion()=seguro.sesion.value ?: throw ErrorApi.NoAutorizado()
     override fun observarLotes(valle: String,busqueda: String)=local.lotes(valle,busqueda)
     override fun observarLabores(loteId: Long)=local.labores(loteId,sesion().usuario)
     override fun ultimaSincronizacion()=local.ultimaSync()
-    override fun errorPendiente(id: Long)=local.q.obtenerLabor(id).executeAsOneOrNull()?.error.orEmpty()
+    override fun errorPendiente(id: Long): ErrorApi? {
+        val error=local.q.obtenerLabor(id).executeAsOneOrNull()?.error?.takeIf { it.isNotBlank() } ?: return null
+        val dto=runCatching { Json.decodeFromString<ErrorDto>(error) }.getOrDefault(ErrorDto(error))
+        return if(dto.validationErrors.isNotEmpty()) ErrorApi.Validacion(dto.validationErrors,dto.message) else ErrorApi.Conflicto(dto.message)
+    }
     override suspend fun guardar(labor: Labor): Labor=withContext(Dispatchers.Default) { mutex.withLock {
         val s=sesion()
+        if((if(labor.id==0L || labor.id<0L) "LABOR_CREAR" else "LABOR_EDITAR") !in s.privilegios) throw ErrorApi.SinPrivilegio()
         val anterior=local.q.obtenerLabor(labor.id).executeAsOneOrNull()
         if(anterior?.pendiente==1L && anterior.propietario!=s.usuario) throw ErrorApi.SinPrivilegio("Hay cambios de otro usuario en esta labor")
         val nuevo=if(labor.id==0L) labor.copy(id=minOf(-1L,local.q.siguienteIdLocal().executeAsOne()-1L),responsable=s.usuario,creadoEn=Clock.System.now().toString(),pendiente=true) else labor.copy(pendiente=true)
@@ -30,6 +37,7 @@ class AgroRepositoryOffline(private val local: BaseLocal,private val http: HttpC
     } }
     override suspend fun eliminar(labor: Labor)=withContext(Dispatchers.Default) { mutex.withLock {
         val s=sesion()
+        if("LABOR_ELIMINAR" !in s.privilegios) throw ErrorApi.SinPrivilegio()
         val anterior=local.q.obtenerLabor(labor.id).executeAsOneOrNull()
         if(anterior?.pendiente==1L && anterior.propietario!=s.usuario) throw ErrorApi.SinPrivilegio()
         if(labor.id<0) local.q.borrarLabor(labor.id) else local.guardar(labor.copy(pendiente=true),"DELETE",s.usuario)
@@ -71,7 +79,12 @@ class AgroRepositoryOffline(private val local: BaseLocal,private val http: HttpC
             } catch(e: ErrorApi) {
                 if(e is ErrorApi.NoAutorizado || e is ErrorApi.SinConexion || e is ErrorApi.TiempoAgotado || e is ErrorApi.Servidor) throw e
                 if(e is ErrorApi.NoEncontrado) { local.q.borrarLabor(p.id) }
-                else { local.guardar(p.dominio(),p.operacion,p.propietario,p.claveCliente,e.message);rechazados++ }
+                else {
+                    val detalle=Json.encodeToString(ErrorDto(e.message,(e as? ErrorApi.Validacion)?.campos ?: emptyMap()))
+                    if(p.operacion=="DELETE") local.guardar(p.dominio().copy(pendiente=false,eliminado=false))
+                    else local.guardar(p.dominio(),p.operacion,p.propietario,p.claveCliente,detalle)
+                    rechazados++
+                }
             }
         }
         val lotes=paginas<LoteDto>("lotes")
