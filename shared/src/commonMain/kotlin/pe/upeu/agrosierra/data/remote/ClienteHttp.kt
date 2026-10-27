@@ -2,6 +2,8 @@ package pe.upeu.agrosierra.data.remote
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.*
+import io.ktor.client.network.sockets.ConnectTimeoutException
+import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -11,9 +13,10 @@ import kotlinx.serialization.json.Json
 import pe.upeu.agrosierra.data.local.AlmacenSeguro
 import pe.upeu.agrosierra.data.remote.dto.ErrorDto
 import pe.upeu.agrosierra.domain.model.ErrorApi
+private val formatoJson=Json { ignoreUnknownKeys=true }
 fun crearCliente(engine: HttpClientEngine,config: ApiConfig,seguro: AlmacenSeguro): HttpClient=HttpClient(engine) {
     expectSuccess=false
-    install(ContentNegotiation) { json(Json { ignoreUnknownKeys=true }) }
+    install(ContentNegotiation) { json(formatoJson) }
     install(HttpTimeout) { requestTimeoutMillis=15000;connectTimeoutMillis=10000;socketTimeoutMillis=15000 }
     defaultRequest {
         url(config.baseUrl)
@@ -23,7 +26,7 @@ fun crearCliente(engine: HttpClientEngine,config: ApiConfig,seguro: AlmacenSegur
     HttpResponseValidator {
         validateResponse { response ->
             if(response.status.value>=400) {
-                val detalle=runCatching { Json { ignoreUnknownKeys=true }.decodeFromString<ErrorDto>(response.bodyAsText()) }.getOrDefault(ErrorDto())
+                val detalle=runCatching { formatoJson.decodeFromString<ErrorDto>(response.bodyAsText()) }.getOrDefault(ErrorDto())
                 if(response.status.value==401) seguro.borrar()
                 throw mapearError(response.status.value,detalle)
             }

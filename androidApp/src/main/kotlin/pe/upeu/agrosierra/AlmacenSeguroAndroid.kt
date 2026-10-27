@@ -4,7 +4,7 @@ import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.serialization.json.*
+import org.json.JSONObject
 import pe.upeu.agrosierra.data.local.AlmacenSeguro
 import pe.upeu.agrosierra.domain.model.Sesion
 @Suppress("DEPRECATION")
@@ -20,7 +20,7 @@ class AlmacenSeguroAndroid(context: Context): AlmacenSeguro {
     override fun guardar(sesion: Sesion) {
         val exp=if(sesion.expiraEn>0) sesion.expiraEn else runCatching {
             val payload=String(Base64.decode(sesion.token.split('.')[1],Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING))
-            Json.parseToJsonElement(payload).jsonObject.getValue("exp").jsonPrimitive.long
+            JSONObject(payload).getLong("exp")
         }.getOrElse { throw IllegalArgumentException("El token no contiene vencimiento") }
         val s=sesion.copy(expiraEn=exp,editaTodas=sesion.editaTodas || "LABOR_ELIMINAR" in sesion.privilegios)
         check(preferencias.edit().putString("token",s.token).putString("usuario",s.usuario).putString("rol",s.rol).putString("nombre",s.nombre).putStringSet("privilegios",s.privilegios).putLong("expira",s.expiraEn).putBoolean("editaTodas",s.editaTodas).commit())

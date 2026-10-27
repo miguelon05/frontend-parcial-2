@@ -14,5 +14,5 @@ class BaseLocal(val db: AgroDb) {
     fun guardar(l: Lote)=q.guardarLote(l.id,l.codigo,l.nombre,l.hectareas,l.cultivo,l.valle,if(l.campaniaCerrada) 1L else 0L,l.dosisMaximaPorHectarea)
     fun guardar(l: Labor,operacion: String="",propietario: String="",clave: String="",error: String="")=q.guardarLabor(l.id,l.loteId,l.tipo.name,l.fecha,l.responsable,l.cantidad,l.observacion,if(l.pendiente) 1L else 0L,l.creadoEn,operacion,propietario,clave,error)
 }
-fun pe.upeu.agrosierra.db.Lote.dominio()=Lote(id,codigo,nombre,hectareas,cultivo,valle,campaniaCerrada==1L,dosisMaxima)
-fun pe.upeu.agrosierra.db.Labor.dominio()=Labor(id,loteId,TipoLabor.valueOf(tipo),fecha,responsable,cantidad,observacion,pendiente==1L,creadoEn,operacion=="DELETE")
+fun pe.upeu.agrosierra.Lote.dominio()=Lote(id,codigo,nombre,hectareas,cultivo,valle,campaniaCerrada==1L,dosisMaxima)
+fun pe.upeu.agrosierra.Labor.dominio()=Labor(id,loteId,TipoLabor.valueOf(tipo),fecha,responsable,cantidad,observacion,pendiente==1L,creadoEn,operacion=="DELETE")
